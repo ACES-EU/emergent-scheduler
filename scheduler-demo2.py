@@ -33,6 +33,8 @@ import pod_profiles
 import algorithms
 import visualization
 
+import yaml
+
 
 class Pod(Agent):
     
@@ -221,9 +223,10 @@ class Worker(Agent):
 class Master(Agent):
     
     
-    def __init__(self, unique_id, model, thresholds = (5,5), Gamma = 0.2, slack_estimation_error=0., worker_list=[]):
+    def __init__(self, unique_id, model, thresholds, Gamma, slack_estimation_error=0., worker_list=[]):
         
         super().__init__(unique_id, model)
+        # print("config file read, the values of threshold and gamma are: ", thresholds, Gamma)
         
         self.worker_list = worker_list
         self.rigid_queue = []
@@ -375,15 +378,20 @@ class Master(Agent):
 class SchedulerModel(Model):
     
     def __init__(self, method='RND', worker_capacity=(512,512), 
-                 inter_arrival_mu=0.1, prob_pod_profiles=(0.4, 0.4, 0.2), prob_elastisity=0.0, seed=100):
+                 inter_arrival_mu=0.1, prob_pod_profiles=(0.4, 0.4, 0.2),
+                 prob_elastisity=0.0, config_file="config.yaml", seed=100):
         
         super().__init__()
+
+        # Load configuration
+        config = self.load_config(config_file)
+        thresholds = tuple(config["scheduler"]["alpha_beta"])
+        Gamma = config["scheduler"]["gamma"]
         
        
         self.inter_arrival_mu = inter_arrival_mu
         self.prob_elastisity = prob_elastisity
-        self.method = method
-        
+        self.method = method  
         self.prob_pod_profiles =  prob_pod_profiles
 
         self.grid = SingleGrid(2000, 2000, False)
@@ -405,7 +413,7 @@ class SchedulerModel(Model):
         self.agent_id += 1
         
         # create the master agent with one worker
-        master = Master(self.agent_id, self, worker_list = [worker])
+        master = Master(self.agent_id, self, thresholds=thresholds, Gamma=Gamma, worker_list = [worker])
         self.schedule.add(master)
         self.agent_id += 1
         
@@ -417,7 +425,12 @@ class SchedulerModel(Model):
         self.datacollector = DataCollector(
         agent_reporters={"Queue Status": "get_queue_status"} )
         
-
+    # load cofig file
+    @staticmethod
+    def load_config(config_file):
+        with open(config_file, "r") as file:
+            config = yaml.safe_load(file)
+        return config
         
          
     def get_new_pod(self, prob_elastisity=0.0):
@@ -492,7 +505,8 @@ def plot_grid(model, fig, ax, sc1, sc2, width, height):
 
      
 if __name__ == '__main__':
-    
+    # specify config_file
+    config_file = "config.yaml"   
     
     # define the scenario here
     prob_pod_profiles=(0.4, 0.4, 0.2)
