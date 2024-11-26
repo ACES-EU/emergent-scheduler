@@ -27,12 +27,15 @@ from mesa.space import SingleGrid
 import numpy as np
 import random
 import matplotlib.pyplot as plt
+import joblib
 
 # added modules  
 import pod_profiles
 import algorithms
 import visualization
 
+# SH: I need the training data to train the NN model
+training_data = []
 
 class Pod(Agent):
     
@@ -150,13 +153,20 @@ class Worker(Agent):
         otherwise retuen False
         '''
        
+        #SH: for the trained model
+        global training_data
+        neural_net_model = joblib.load('trained_neural_net_model.joblib')
+        scaler = joblib.load('scaler.joblib') 
+
         # see algorithms for implemented methods
         if self.model.method == 'RND':
             peer_id, peer_pod = algorithms.random_peer_selection(self.model)
         elif self.model.method == 'BEST':
-            peer_id, peer_pod = algorithms.best_peer_selection(self.model, pod, ticks=True)
+            peer_id, peer_pod, training_data = algorithms.best_peer_selection(training_data, self.model, pod, ticks=True)
         elif self.model.method == 'SWARM':
             peer_id, peer_pod, best_key = algorithms.bottom_up_peer_seletion(self.model, pod)
+        elif self.model.method == 'NN':                                                                     #SH: Added to test NN model
+            peer_id, peer_pod = algorithms.nn_peer_selection(self.model, pod, neural_net_model, scaler, ticks = True)
             
         else:
             print('Method is not implemented')
@@ -522,6 +532,12 @@ if __name__ == '__main__':
     swarm_model_mem_utilization_KPI = []
     swarm_model_satisfication_elastic = []
     swarm_model_satisfication_rigid = []
+
+    #SH: Added for NN model
+    nn_model_cpu_utilization_KPI = []
+    nn_model_mem_utilization_KPI = []
+    nn_model_satisfication_elastic = []
+    nn_model_satisfication_rigid = []
   
     
     #visualize the slack 
@@ -605,6 +621,27 @@ if __name__ == '__main__':
         swarm_model_mem_utilization_KPI.append(mem3)
         swarm_model_satisfication_elastic.append(s31)
         swarm_model_satisfication_rigid.append(s32)
+
+
+        #SH: Added for the NN model
+        nn_model = SchedulerModel(method='NN', 
+                                      worker_capacity=worker_capacity, 
+                                      inter_arrival_mu=inter_arrival_mu,
+                                      prob_elastisity=prob_elastisity,
+                                      prob_pod_profiles=prob_pod_profiles,
+                                      seed=seed_points[count])
+        
+        for i in range(num_steps):
+              nn_model.step()
+              #plot_grid(nn_model, fig0, ax0, sc1, sc2, width, height)
+
+        s41, s42 = visualization.get_satification_rate(nn_model)
+        q41, q42, cpu4, mem4 = visualization.get_steady_state_utilization(nn_model)
+        
+        nn_model_cpu_utilization_KPI.append(cpu4)
+        nn_model_mem_utilization_KPI.append(mem4)
+        nn_model_satisfication_elastic.append(s41)
+        nn_model_satisfication_rigid.append(s42)
   
             
 
@@ -615,6 +652,7 @@ if __name__ == '__main__':
             ax11, ax12 = visualization.plot_dynamics(random_model, ax11, ax12, q1_color='blue',q2_color='#00BFFF', cpu_color='blue', mem_color='blue', alpha=0.3, label='random')
             ax12, ax12 = visualization.plot_dynamics(best_model, ax11, ax12, q1_color='r', q2_color='#FF6347', cpu_color='red', mem_color='red', alpha=1.0, label='best')
             ax12, ax12 = visualization.plot_dynamics(swarm_model, ax11, ax12, q1_color='g', q2_color='#3CB371', cpu_color='g', mem_color='g', alpha=1.0, label='bottom-up')
+            ax12, ax12 = visualization.plot_dynamics(nn_model, ax11, ax12, q1_color='c', q2_color='#00FFFF', cpu_color='c', mem_color='c', alpha=1.0, label='neural-net')
             fig1.savefig(f'Lambda-{inter_arrival_mu:.1f}.pdf')
 
         #plt.show()
@@ -636,6 +674,7 @@ if __name__ == '__main__':
     #ax21.plot(inter_arrival_mu_list, best_model_mem_utilization_KPI, color='r', linestyle='--')
    
     ax21.plot(inter_arrival_mu_list, swarm_model_cpu_utilization_KPI, color='g', label='bottom-up')
+    ax21.plot(inter_arrival_mu_list, nn_model_cpu_utilization_KPI, color='c', label='neural-net')
     
     ax21.axvline(x=0.55, color='k', linestyle='--')
     ax21.text(0.5,0.2, r'$\lambda_0$', fontsize=12, color='k')
@@ -651,9 +690,11 @@ if __name__ == '__main__':
     ax22.plot(inter_arrival_mu_list, random_model_satisfication_rigid, color='b', label='random-rigid' )
     ax22.plot(inter_arrival_mu_list, best_model_satisfication_rigid, color='r', label='best-rigid')
     ax22.plot(inter_arrival_mu_list, swarm_model_satisfication_rigid, color='g', label='bottom-up-rigid')
+    ax22.plot(inter_arrival_mu_list, nn_model_satisfication_rigid, color='c', label='neural-net-rigid')
     ax22.plot(inter_arrival_mu_list, random_model_satisfication_elastic, color='b', linestyle='--', label='random-elastic' )
     ax22.plot(inter_arrival_mu_list, best_model_satisfication_elastic, color='r', linestyle='--', label='best-elastic')
     ax22.plot(inter_arrival_mu_list, swarm_model_satisfication_elastic, color='g', linestyle='--', label='bottom-up-elastic')
+    ax22.plot(inter_arrival_mu_list, nn_model_satisfication_elastic, color='c', linestyle='--', label='neural-net-elastic')
 
     ax22.set_xlabel(r'$\lambda$')
     ax22.set_ylabel('satisfication rate')

@@ -221,7 +221,7 @@ class Worker(Agent):
 class Master(Agent):
     
     
-    def __init__(self, unique_id, model, thresholds = (5,5), Gamma = 0.2, slack_estimation_error=0.2, worker_list=[]):
+    def __init__(self, unique_id, model, thresholds = (5,5), Gamma = 0.0, slack_estimation_error=0.2, worker_list=[]):
         
         super().__init__(unique_id, model)
         

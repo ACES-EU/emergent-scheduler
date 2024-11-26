@@ -27,12 +27,17 @@ from mesa.space import SingleGrid
 import numpy as np
 import random
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+import pandas as pd
+import joblib
 
 # added modules  
 import pod_profiles
 import algorithms
 import visualization
 
+# SH: I need the training data to train the NN model
+training_data = []
 
 class Pod(Agent):
     
@@ -149,14 +154,20 @@ class Worker(Agent):
         If the selected rigid pod has sufficient slack resources to meet the elastic pod's demand return True
         otherwise retuen False
         '''
+        #SH: for the trained model
+        global training_data
+        neural_net_model = joblib.load('trained_neural_net_model.joblib')
+        scaler = joblib.load('scaler.joblib') 
        
         # see algorithms for implemented methods
         if self.model.method == 'RND':
             peer_id, peer_pod = algorithms.random_peer_selection(self.model)
         elif self.model.method == 'BEST':
-            peer_id, peer_pod = algorithms.best_peer_selection(self.model, pod, ticks=True)
+            peer_id, peer_pod, training_data = algorithms.best_peer_selection(training_data, self.model, pod, ticks=True)
         elif self.model.method == 'SWARM':
             peer_id, peer_pod, best_key = algorithms.bottom_up_peer_seletion(self.model, pod)
+        elif self.model.method == 'NN':                                                                     #SH: Added to test NN model
+            peer_id, peer_pod = algorithms.nn_peer_selection(self.model, pod, neural_net_model, scaler, ticks = True)
             
         else:
             print('Method is not implemented')
@@ -522,6 +533,12 @@ if __name__ == '__main__':
     swarm_model_mem_utilization_KPI = []
     swarm_model_satisfication_elastic = []
     swarm_model_satisfication_rigid = []
+
+    #SH: Added for NN model
+    nn_model_cpu_utilization_KPI = []
+    nn_model_mem_utilization_KPI = []
+    nn_model_satisfication_elastic = []
+    nn_model_satisfication_rigid = []
   
     
     #visualize the slack 
@@ -586,6 +603,17 @@ if __name__ == '__main__':
         best_model_mem_utilization_KPI.append(mem2)
         best_model_satisfication_elastic.append(s21)
         best_model_satisfication_rigid.append(s22)
+
+        #SH: To log all the training data
+        """ df = pd.DataFrame(training_data)
+        df.to_csv("peer_selection_training_data.csv", index=False)
+
+        df = pd.read_csv("peer_selection_training_data.csv")
+        scaler = MinMaxScaler()
+        normalized_data = scaler.fit_transform(df)
+        normalized_df = pd.DataFrame(normalized_data, columns=df.columns)
+        normalized_df.to_csv("normalized_peer_selection_training_data.csv", index=False)
+        print("Normalization complete. Saved to 'normalized_peer_selection_training_data.csv'") """
         
         
         swarm_model = SchedulerModel(method='SWARM', 
@@ -599,7 +627,6 @@ if __name__ == '__main__':
               swarm_model.step()
               plot_grid(swarm_model, fig0, ax0, sc1, sc2, width, height)
 
-            
         s31, s32 = visualization.get_satification_rate(swarm_model)
         q31, q32, cpu3, mem3 = visualization.get_steady_state_utilization(swarm_model)
         
@@ -607,6 +634,27 @@ if __name__ == '__main__':
         swarm_model_mem_utilization_KPI.append(mem3)
         swarm_model_satisfication_elastic.append(s31)
         swarm_model_satisfication_rigid.append(s32)
+
+
+        #SH: Added for the NN model
+        nn_model = SchedulerModel(method='NN', 
+                                      worker_capacity=worker_capacity, 
+                                      inter_arrival_mu=inter_arrival_mu,
+                                      prob_elastisity=prob_elastisity,
+                                      prob_pod_profiles=prob_pod_profiles,
+                                      seed=seed_points[count])
+        
+        for i in range(num_steps):
+              nn_model.step()
+              plot_grid(nn_model, fig0, ax0, sc1, sc2, width, height)
+
+        s41, s42 = visualization.get_satification_rate(nn_model)
+        q41, q42, cpu4, mem4 = visualization.get_steady_state_utilization(nn_model)
+        
+        nn_model_cpu_utilization_KPI.append(cpu4)
+        nn_model_mem_utilization_KPI.append(mem4)
+        nn_model_satisfication_elastic.append(s41)
+        nn_model_satisfication_rigid.append(s42)
   
             
 
