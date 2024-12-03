@@ -18,6 +18,8 @@ The values for **`alpha`**, **`beta`**, and **`gamma`** can be configured in the
 
 Execute the script `scheduler-demo2.py`. The program will simulate the allocation process over multiple traffic intensities **`λ`**. In the script **`thresholds`** take in the values **`alpha`** and **`beta`** from the config file and **`Gamma`** is taken from the parameter **`gamma`**.
 
+**Note:** The parameters `alpha`, `beta`, and `gamma` are **only used** in the **Bottom-Up** algorithm.
+
 The executed algorithms **`random`**, **`best`**, and **`bottum_up`** can be accessed in the file `algorithms.py`.
 
 ## Obtaining Results
